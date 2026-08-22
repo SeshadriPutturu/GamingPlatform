@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Score Keeper</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Score Keeper</h1>
+
+    <form id="addForm">
+      <input id="nameInput" placeholder="Member name" required />
+      <button type="submit">Add Member</button>
+    </form>
+
+    <div id="memberCountSection" class="member-count">
+      <label for="memberCount">Number of members:</label>
+      <select id="memberCount">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
+      </select>
+      <button id="createSlotsBtn">Create Slots</button>
+    </div>
+
+    <form id="bulkAddForm" style="display:none">
+      <div id="memberSlots"></div>
+      <button id="saveMembersBtn" type="submit">Save Members</button>
+    </form>
+
+    <div class="top-controls">
+      <label for="maxScoreInput">Maximum score:</label>
+      <input id="maxScoreInput" type="number" min="1" placeholder="e.g. 50" />
+      <button id="startGameBtn">Start Game</button>
+      <div id="roundInfo" class="round-info" aria-live="polite"></div>
+    </div>
+
+    <ul id="membersList"></ul>
+
+    <form id="roundForm" class="round-form" style="display:none">
+      <div id="roundInputs"></div>
+      <button id="submitRoundBtn" type="submit">Submit Round</button>
+    </form>
+
+    <div class="controls">
+      <button id="undoRoundBtn">Undo Last Round</button>
+      <button id="endGameBtn">End Game</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+
+    <div id="winner" class="winner" aria-live="polite"></div>
+    <div id="roundsHistory" class="rounds-history"></div>
+  </div>
+
+  <div id="confirmModal" class="modal" style="display:none">
+    <div class="modal-content">
+      <p id="confirmMessage">Are you sure?</p>
+      <div class="modal-actions">
+        <button id="confirmYes">Yes</button>
+        <button id="confirmNo">No</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
