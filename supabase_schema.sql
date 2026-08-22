@@ -4,6 +4,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS public.games (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   name text,
   max_score integer,
   ended boolean DEFAULT false,
@@ -27,6 +28,7 @@ CREATE TABLE IF NOT EXISTS public.rounds (
 
 -- Upgrade older installations. IF NOT EXISTS prevents the created_at error you saw.
 ALTER TABLE public.games ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE public.games ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.games ADD COLUMN IF NOT EXISTS max_score integer;
 ALTER TABLE public.games ADD COLUMN IF NOT EXISTS ended boolean DEFAULT false;
 ALTER TABLE public.games ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
@@ -48,28 +50,28 @@ DROP POLICY IF EXISTS allow_public_select_games ON public.games;
 DROP POLICY IF EXISTS allow_public_insert_games ON public.games;
 DROP POLICY IF EXISTS allow_public_update_games ON public.games;
 DROP POLICY IF EXISTS allow_public_delete_games ON public.games;
-CREATE POLICY allow_public_select_games ON public.games FOR SELECT USING (true);
-CREATE POLICY allow_public_insert_games ON public.games FOR INSERT WITH CHECK (true);
-CREATE POLICY allow_public_update_games ON public.games FOR UPDATE USING (true) WITH CHECK (true);
-CREATE POLICY allow_public_delete_games ON public.games FOR DELETE USING (true);
+CREATE POLICY allow_public_select_games ON public.games FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY allow_public_insert_games ON public.games FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY allow_public_update_games ON public.games FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY allow_public_delete_games ON public.games FOR DELETE USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS allow_public_select_members ON public.members;
 DROP POLICY IF EXISTS allow_public_insert_members ON public.members;
 DROP POLICY IF EXISTS allow_public_update_members ON public.members;
 DROP POLICY IF EXISTS allow_public_delete_members ON public.members;
-CREATE POLICY allow_public_select_members ON public.members FOR SELECT USING (true);
-CREATE POLICY allow_public_insert_members ON public.members FOR INSERT WITH CHECK (true);
-CREATE POLICY allow_public_update_members ON public.members FOR UPDATE USING (true) WITH CHECK (true);
-CREATE POLICY allow_public_delete_members ON public.members FOR DELETE USING (true);
+CREATE POLICY allow_public_select_members ON public.members FOR SELECT USING (EXISTS (SELECT 1 FROM public.games WHERE games.id = members.game_id AND games.user_id = auth.uid()));
+CREATE POLICY allow_public_insert_members ON public.members FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.games WHERE games.id = members.game_id AND games.user_id = auth.uid()));
+CREATE POLICY allow_public_update_members ON public.members FOR UPDATE USING (EXISTS (SELECT 1 FROM public.games WHERE games.id = members.game_id AND games.user_id = auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.games WHERE games.id = members.game_id AND games.user_id = auth.uid()));
+CREATE POLICY allow_public_delete_members ON public.members FOR DELETE USING (EXISTS (SELECT 1 FROM public.games WHERE games.id = members.game_id AND games.user_id = auth.uid()));
 
 DROP POLICY IF EXISTS allow_public_select_rounds ON public.rounds;
 DROP POLICY IF EXISTS allow_public_insert_rounds ON public.rounds;
 DROP POLICY IF EXISTS allow_public_update_rounds ON public.rounds;
 DROP POLICY IF EXISTS allow_public_delete_rounds ON public.rounds;
-CREATE POLICY allow_public_select_rounds ON public.rounds FOR SELECT USING (true);
-CREATE POLICY allow_public_insert_rounds ON public.rounds FOR INSERT WITH CHECK (true);
-CREATE POLICY allow_public_update_rounds ON public.rounds FOR UPDATE USING (true) WITH CHECK (true);
-CREATE POLICY allow_public_delete_rounds ON public.rounds FOR DELETE USING (true);
+CREATE POLICY allow_public_select_rounds ON public.rounds FOR SELECT USING (EXISTS (SELECT 1 FROM public.games WHERE games.id = rounds.game_id AND games.user_id = auth.uid()));
+CREATE POLICY allow_public_insert_rounds ON public.rounds FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.games WHERE games.id = rounds.game_id AND games.user_id = auth.uid()));
+CREATE POLICY allow_public_update_rounds ON public.rounds FOR UPDATE USING (EXISTS (SELECT 1 FROM public.games WHERE games.id = rounds.game_id AND games.user_id = auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.games WHERE games.id = rounds.game_id AND games.user_id = auth.uid()));
+CREATE POLICY allow_public_delete_rounds ON public.rounds FOR DELETE USING (EXISTS (SELECT 1 FROM public.games WHERE games.id = rounds.game_id AND games.user_id = auth.uid()));
 
 -- Keep existing rows valid after migration.
 UPDATE public.games SET ended = COALESCE(ended,false) WHERE ended IS NULL;
