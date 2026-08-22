@@ -8,14 +8,25 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="app-shell">
+  <section id="authPanel" class="panel auth-panel">
+    <div class="section-heading"><div><p class="eyebrow">ACCOUNT</p><h2 id="authTitle">Welcome back</h2><p id="authSubtitle">Sign in to save and access your games.</p></div></div>
+    <form id="authForm" class="auth-form">
+      <label>Email <input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></label>
+      <label>Password <input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"></label>
+      <button id="authSubmit" type="submit">Sign In</button>
+    </form>
+    <button id="authToggle" type="button" class="ghost auth-toggle">Need an account? Register</button>
+    <div id="authNotice" class="notice" role="status" aria-live="polite"></div>
+  </section>
+
+  <main id="appShell" class="app-shell" hidden>
     <header class="app-header">
       <div>
         <p class="eyebrow">GAME PLATFORM</p>
         <h1>Least Count Game</h1>
         <p class="subtitle">Track players, rounds, totals and game history without losing your progress.</p>
       </div>
-      <div id="dbStatus" class="db-status">DB: checking...</div>
+      <div class="header-actions"><div id="dbStatus" class="db-status">DB: checking...</div><button id="signOutBtn" type="button" class="ghost">Sign Out</button></div>
     </header>
 
     <section class="panel setup-panel">
@@ -95,6 +106,10 @@
     </div>
   </div>
 
+  <style>
+    .auth-panel{max-width:560px;margin:8vh auto 0}.auth-form{display:grid;gap:14px}.auth-form label{display:grid;gap:6px;font-weight:700;color:var(--text)}.auth-form input{width:100%}.auth-toggle{margin-top:12px}.header-actions{display:flex;align-items:center;gap:10px}.auth-panel .notice{margin-top:14px}
+    @media (max-width:600px){.header-actions{align-items:flex-end;flex-direction:column}.auth-panel{margin-top:4vh}}
+  </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
