@@ -1,414 +1,66 @@
-const STORAGE_KEY = 'scorekeeper_members';
-const ENDED_KEY = 'scorekeeper_ended';
-
-const addForm = document.getElementById('addForm');
-const nameInput = document.getElementById('nameInput');
-const membersList = document.getElementById('membersList');
-const endGameBtn = document.getElementById('endGameBtn');
-const resetBtn = document.getElementById('resetBtn');
-const winnerDiv = document.getElementById('winner');
-const startGameBtn = document.getElementById('startGameBtn');
-const roundInfo = document.getElementById('roundInfo');
-const roundForm = document.getElementById('roundForm');
-const roundInputs = document.getElementById('roundInputs');
-const submitRoundBtn = document.getElementById('submitRoundBtn');
-const roundsHistoryDiv = document.getElementById('roundsHistory');
-const memberCountSection = document.getElementById('memberCountSection');
-const memberCount = document.getElementById('memberCount');
-const createSlotsBtn = document.getElementById('createSlotsBtn');
-const bulkAddForm = document.getElementById('bulkAddForm');
-const memberSlots = document.getElementById('memberSlots');
-const saveMembersBtn = document.getElementById('saveMembersBtn');
-const maxScoreInput = document.getElementById('maxScoreInput');
-const undoRoundBtn = document.getElementById('undoRoundBtn');
-const confirmModal = document.getElementById('confirmModal');
-const confirmMessage = document.getElementById('confirmMessage');
-const confirmYes = document.getElementById('confirmYes');
-const confirmNo = document.getElementById('confirmNo');
-
-const MAX_KEY = 'scorekeeper_max';
-
-let members = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-let ended = localStorage.getItem(ENDED_KEY) === 'true';
-let inGame = false;
-const ROUNDS_KEY = 'scorekeeper_rounds';
-let rounds = JSON.parse(localStorage.getItem(ROUNDS_KEY) || '[]');
-let roundNumber = rounds.length + 1;
-let initialSetup = members.length === 0 && !ended;
-let maxScore = Number(localStorage.getItem(MAX_KEY)) || 0;
-
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(members));
-}
-
-function render() {
-  membersList.innerHTML = '';
-  members.forEach((m, i) => {
-    const li = document.createElement('li');
-    li.dataset.index = i;
-
-    const left = document.createElement('div');
-    left.style.display = 'flex';
-    left.style.alignItems = 'center';
-    const name = document.createElement('div');
-    name.textContent = m.name;
-    name.className = 'name';
-    left.appendChild(name);
-    if (m.eliminated) {
-      const badge = document.createElement('span');
-      badge.className = 'badge eliminated-badge';
-      badge.textContent = 'Eliminated';
-      left.appendChild(badge);
-    }
-
-    // show per-row total (also displayed in rounds history)
-    const center = document.createElement('div');
-    center.className = 'score';
-    center.textContent = m.score;
-
-    const actions = document.createElement('div');
-    actions.className = 'actions';
-
-    const inc = document.createElement('button');
-    inc.textContent = '+';
-    inc.onclick = () => changeScore(i, 1);
-    const dec = document.createElement('button');
-    dec.textContent = '−';
-    dec.onclick = () => changeScore(i, -1);
-
-    // Mark eliminated visually
-    if (m.eliminated) li.classList.add('eliminated-item');
-
-    // Disable manual score buttons while in a round or after end
-    if (ended || inGame) { inc.disabled = true; dec.disabled = true; }
-
-    actions.appendChild(inc);
-    actions.appendChild(dec);
-
-    li.appendChild(left);
-    li.appendChild(center);
-    li.appendChild(actions);
-
-    membersList.appendChild(li);
+const KEYS={members:'scorekeeper_members',rounds:'scorekeeper_rounds',ended:'scorekeeper_ended',max:'scorekeeper_max',history:'scorekeeper_history',gameId:'scorekeeper_db_game_id'};
+const $=id=>document.getElementById(id);
+const els={addForm:$('addForm'),nameInput:$('nameInput'),membersList:$('membersList'),endGameBtn:$('endGameBtn'),resetBtn:$('resetBtn'),winner:$('winner'),start:$('startGameBtn'),roundInfo:$('roundInfo'),roundTitle:$('roundTitle'),roundForm:$('roundForm'),roundInputs:$('roundInputs'),submitRound:$('submitRoundBtn'),roundsHistory:$('roundsHistory'),memberCount:$('memberCount'),createSlots:$('createSlotsBtn'),bulkForm:$('bulkAddForm'),slots:$('memberSlots'),cancelSlots:$('cancelSlotsBtn'),saveMembers:$('saveMembersBtn'),max:$('maxScoreInput'),undo:$('undoRoundBtn'),confirmModal:$('confirmModal'),confirmMessage:$('confirmMessage'),confirmYes:$('confirmYes'),confirmNo:$('confirmNo'),db:$('dbStatus'),historyBtn:$('historyBtn'),historyModal:$('historyModal'),historyList:$('historyList'),historyClose:$('historyClose'),historyCloseTop:$('historyCloseTop'),historyRefresh:$('historyRefresh'),newGame:$('newGameBtn'),saveGameBtn:$('saveGameBtn'),prev:$('historyPrev'),next:$('historyNext'),pageInfo:$('historyPageInfo'),countBadge:$('playerCountBadge'),notice:$('gameNotice'),scoreboard:$('scoreBoard')};
+let members=readJSON(KEYS.members,[]).map(normalizeMember),rounds=readJSON(KEYS.rounds,[]).map(normalizeRound),ended=localStorage.getItem(KEYS.ended)==='true',inGame=false,maxScore=Number(localStorage.getItem(KEYS.max)||0),DB_GAME_ID=localStorage.getItem(KEYS.gameId)||null,supabaseClient=null,currentHistoryPage=1,historyTotalCount=0,confirmAction=null;
+let roundNumber=rounds.length+1;
+try{if(typeof SUPABASE_URL!=='undefined'&&typeof SUPABASE_ANON_KEY!=='undefined'&&window.supabase)supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY)}catch(e){console.warn(e)}
+function readJSON(k,f){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v??f}catch{return f}}
+function normalizeMember(m){return {name:String(m?.name||'').trim(),score:Number(m?.score??m?.total??0)||0,eliminated:Boolean(m?.eliminated),db_id:m?.db_id||null}}
+function normalizeRound(r){return Array.isArray(r)?r.map(v=>Number(v)||0):[]}
+function persist(){localStorage.setItem(KEYS.members,JSON.stringify(members));localStorage.setItem(KEYS.rounds,JSON.stringify(rounds));localStorage.setItem(KEYS.ended,String(ended));localStorage.setItem(KEYS.max,String(maxScore||0));if(DB_GAME_ID)localStorage.setItem(KEYS.gameId,DB_GAME_ID);else localStorage.removeItem(KEYS.gameId)}
+function setNotice(msg,type='info'){els.notice.textContent=msg||'';els.notice.dataset.type=type}
+function showConfirm(message,action){els.confirmMessage.textContent=message;confirmAction=action;els.confirmModal.hidden=false}
+function closeConfirm(){els.confirmModal.hidden=true;confirmAction=null}
+function escapeText(s){return String(s??'')}
+function gameFinished(){return members.length>0&&members.some(m=>m.score>=maxScore&&maxScore>0)}
+function getWinners(){if(!members.length)return[];const active=members.filter(m=>!m.eliminated);const pool=active.length?active:members;const min=Math.min(...pool.map(m=>m.score));return pool.filter(m=>m.score===min)}
+function render(){
+  els.countBadge.textContent=`${members.length} player${members.length===1?'':'s'}`;
+  els.membersList.innerHTML='';
+  if(!members.length){els.membersList.innerHTML='<div class="empty-state">No players yet. Add players to start a game.</div>'}
+  members.forEach((m,i)=>{const card=document.createElement('div');card.className='player-card'+(m.eliminated?' eliminated':'');
+    const info=document.createElement('div');const n=document.createElement('div');n.className='player-name';n.textContent=m.name;const meta=document.createElement('div');meta.className='player-meta';meta.textContent=m.eliminated?'Eliminated':'Active';info.append(n,meta);
+    const total=document.createElement('div');total.className='player-total';total.textContent=m.score;
+    const remove=document.createElement('button');remove.className='remove-player';remove.textContent='Remove';remove.disabled=inGame||ended;remove.onclick=()=>removeMember(i);
+    card.append(info,total,remove);els.membersList.appendChild(card);
   });
-
-  // Clear any previous winner marks
-  Array.from(membersList.children).forEach(li => li.classList.remove('winner-item'));
-
-  // If the game has ended, compute and display winners
-  if (ended) {
-    if (members.length === 0) {
-      winnerDiv.textContent = 'No members added.';
-      return;
-    }
-    const min = Math.min(...members.map(m => m.score));
-    const winners = members.filter(m => m.score === min);
-    if (winners.length === 1) {
-      winnerDiv.textContent = `Winner (least): ${winners[0].name} (${winners[0].score})`;
-    } else {
-      winnerDiv.textContent = `Tie between ${winners.map(w => w.name).join(', ')} (${min})`;
-    }
-    Array.from(membersList.children).forEach(li => {
-      const i = Number(li.dataset.index);
-      if (members[i].score === min) li.classList.add('winner-item');
-    });
-  } else {
-    winnerDiv.textContent = '';
-  }
-
-  // Update start button and round UI
-  startGameBtn.disabled = inGame || members.length === 0 || ended;
-  // Undo button visible only when rounds exist
-  if (undoRoundBtn) {
-    undoRoundBtn.style.display = rounds.length > 0 ? 'inline-block' : 'none';
-    undoRoundBtn.disabled = rounds.length === 0;
-  }
-  // Start button only visible after members are added
-  startGameBtn.style.display = members.length > 0 ? 'inline-block' : 'none';
-  roundInfo.textContent = inGame ? `Round ${roundNumber}` : '';
-  roundForm.style.display = inGame ? 'block' : 'none';
-
-  // Max score input enabled only before game starts
-  if (maxScoreInput) {
-    maxScoreInput.disabled = inGame || ended;
-    maxScoreInput.value = maxScore || '';
-  }
-
-  // Member count and bulk add visibility
-  if (initialSetup) {
-    memberCountSection.style.display = 'block';
-    bulkAddForm.style.display = 'none';
-    addForm.style.display = 'none';
-  } else {
-    memberCountSection.style.display = 'none';
-    addForm.style.display = 'flex';
-  }
-
-  renderRoundsHistory();
+  const winners=ended?getWinners():[];els.membersList.querySelectorAll('.player-card').forEach((c,i)=>{if(winners.some(w=>w===members[i]))c.classList.add('winner')});
+  updateStartButton();
+  els.roundForm.hidden=!inGame||ended;els.roundInfo.textContent=inGame?`Round ${roundNumber}`:ended?'Game ended':'Not started';els.roundTitle.textContent=`Round ${roundNumber}`;
+  els.max.disabled=inGame||ended;els.max.value=maxScore||'';
+  els.undo.hidden=rounds.length===0;els.undo.disabled=rounds.length===0||ended;
+  els.endGameBtn.disabled=!inGame||ended;els.saveGameBtn.disabled=members.length===0;els.newGame.disabled=false;
+  if(ended){els.winner.hidden=false;const ws=getWinners();els.winner.textContent=ws.length===1?`Winner: ${ws[0].name} (${ws[0].score})`:`Winners: ${ws.map(w=>w.name).join(', ')} (${ws[0]?.score??0})`}else els.winner.hidden=true;
+  renderRoundInputs();renderScoreboard();renderRoundsHistory();
 }
-
-function showConfirm(message, onConfirm, onCancel) {
-  if (!confirmModal) { if (onConfirm) onConfirm(); return; }
-  confirmMessage.textContent = message;
-  confirmModal.style.display = 'block';
-  function cleanup() {
-    confirmModal.style.display = 'none';
-    confirmYes.removeEventListener('click', yesHandler);
-    confirmNo.removeEventListener('click', noHandler);
-  }
-  function yesHandler() { cleanup(); onConfirm && onConfirm(); }
-  function noHandler() { cleanup(); onCancel && onCancel(); }
-  confirmYes.addEventListener('click', yesHandler);
-  confirmNo.addEventListener('click', noHandler);
-}
-
-function renderRoundForm() {
-  roundInputs.innerHTML = '';
-  members.forEach((m, i) => {
-    if (m.eliminated) return; // skip eliminated members for new rounds
-    const row = document.createElement('div');
-    row.className = 'round-row';
-    const label = document.createElement('label');
-    label.textContent = m.name;
-    label.htmlFor = `score_${i}`;
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.id = `score_${i}`;
-    input.name = `score_${i}`;
-    input.required = true;
-    input.min = '-100000';
-    input.placeholder = 'Score for this round';
-    row.appendChild(label);
-    row.appendChild(input);
-    roundInputs.appendChild(row);
-  });
-}
-
-function renderRoundsHistory() {
-  roundsHistoryDiv.innerHTML = '';
-  if (!rounds || rounds.length === 0) return;
-  const table = document.createElement('table');
-  table.className = 'rounds-table';
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  const thMember = document.createElement('th');
-  thMember.textContent = 'Member';
-  headerRow.appendChild(thMember);
-  const thElim = document.createElement('th');
-  thElim.textContent = 'Elim';
-  headerRow.appendChild(thElim);
-  rounds.forEach((r, idx) => {
-    const th = document.createElement('th');
-    th.textContent = `R${idx + 1}`;
-    headerRow.appendChild(th);
-  });
-  const thTotal = document.createElement('th');
-  thTotal.textContent = 'Total';
-  headerRow.appendChild(thTotal);
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
-  members.forEach((m, mi) => {
-    const tr = document.createElement('tr');
-    if (m.eliminated) tr.classList.add('eliminated-item');
-    const tdName = document.createElement('td');
-    tdName.textContent = m.name;
-    tr.appendChild(tdName);
-    const tdElim = document.createElement('td');
-    tdElim.textContent = m.eliminated ? 'Yes' : '-';
-    tr.appendChild(tdElim);
-    let rowTotal = 0;
-    rounds.forEach(r => {
-      const td = document.createElement('td');
-      const v = Number(r[mi]);
-      td.textContent = isNaN(v) ? '-' : v;
-      if (!isNaN(v)) rowTotal += v;
-      tr.appendChild(td);
-    });
-    const tdTotal = document.createElement('td');
-    tdTotal.textContent = m.score;
-    tr.appendChild(tdTotal);
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-  roundsHistoryDiv.appendChild(table);
-}
-
-function addMember(name) {
-  members.push({ name, score: 0, eliminated: false });
-  save();
-  render();
-}
-
-function createSlots() {
-  const n = Number(memberCount.value) || 1;
-  memberSlots.innerHTML = '';
-  for (let i = 0; i < n; i++) {
-    const div = document.createElement('div');
-    div.className = 'slot-row';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.placeholder = `Member ${i + 1} name`;
-    input.required = true;
-    input.id = `slot_${i}`;
-    div.appendChild(input);
-    memberSlots.appendChild(div);
-  }
-  bulkAddForm.style.display = 'block';
-  memberCountSection.style.display = 'none';
-}
-
-function saveBulkMembers(e) {
-  e.preventDefault();
-  const inputs = Array.from(memberSlots.querySelectorAll('input'));
-  members = inputs.map(i => ({ name: i.value.trim(), score: 0, eliminated: false })).filter(m => m.name);
-  if (members.length === 0) return;
-  save();
-  initialSetup = false;
-  bulkAddForm.style.display = 'none';
-  render();
-}
-
-function startGame() {
-  if (members.length === 0) return;
-  // Read and persist max score threshold (must be >0)
-  const val = Number(maxScoreInput && maxScoreInput.value) || 0;
-  maxScore = val > 0 ? val : 0;
-  if (maxScore > 0) localStorage.setItem(MAX_KEY, String(maxScore));
-
-  inGame = true;
-  rounds = [];
-  localStorage.removeItem(ROUNDS_KEY);
-  roundNumber = 1;
-  // Disable adding members while game in progress
-  document.getElementById('nameInput').disabled = true;
-  document.querySelector('#addForm button[type="submit"]').disabled = true;
-  renderRoundForm();
-  render();
-}
-
-function changeScore(index, delta) {
-  if (ended) return;
-  if (inGame) return;
-  members[index].score += delta;
-  save();
-  render();
-}
-
-function submitRound(e) {
-  e.preventDefault();
-  // Collect scores
-  const inputs = Array.from(roundInputs.querySelectorAll('input'));
-  const roundScores = [];
-  for (const input of inputs) {
-    const idx = Number(input.id.split('_')[1]);
-    const val = Number(input.value) || 0;
-    members[idx].score += val;
-    roundScores[idx] = val;
-    input.value = '';
-  }
-  // After applying round scores, mark members eliminated if they reached maxScore
-  if (maxScore && maxScore > 0) {
-    members.forEach((m, i) => {
-      if (!m.eliminated && m.score >= maxScore) {
-        m.eliminated = true;
-      }
-    });
-  }
-  rounds.push(roundScores);
-  localStorage.setItem(ROUNDS_KEY, JSON.stringify(rounds));
-  save();
-  roundNumber = rounds.length + 1;
-
-  // If only one non-eliminated member remains, end the game automatically
-  const active = members.filter(m => !m.eliminated);
-  if (active.length <= 1) {
-    // Ask confirmation before auto-ending
-    showConfirm('Only one player remains — end game now?', () => {
-      localStorage.setItem(ROUNDS_KEY, JSON.stringify(rounds));
-      endGame();
-    }, () => {
-      // If user cancels, allow continuing (no further action)
-      render();
-    });
-    return;
-  }
-
-  renderRoundForm();
-  render();
-}
-
-function endGame() {
-  ended = true;
-  inGame = false;
-  localStorage.setItem(ENDED_KEY, 'true');
-  localStorage.setItem(ROUNDS_KEY, JSON.stringify(rounds));
-  if (maxScore && maxScore > 0) localStorage.setItem(MAX_KEY, String(maxScore));
-  // Re-enable adding members after end
-  document.getElementById('nameInput').disabled = false;
-  document.querySelector('#addForm button[type="submit"]').disabled = false;
-  render();
-}
-
-function recomputeFromRounds() {
-  // Reset scores and elimination
-  members.forEach(m => { m.score = 0; m.eliminated = false; });
-  // Apply each saved round in order
-  for (const r of rounds) {
-    for (let i = 0; i < members.length; i++) {
-      const v = Number(r[i]) || 0;
-      members[i].score += v;
-    }
-    // Apply elimination after each round
-    if (maxScore && maxScore > 0) {
-      members.forEach(m => { if (!m.eliminated && m.score >= maxScore) m.eliminated = true; });
-    }
-  }
-}
-
-function undoLastRound() {
-  if (!rounds || rounds.length === 0) return;
-  rounds.pop();
-  localStorage.setItem(ROUNDS_KEY, JSON.stringify(rounds));
-  // Recompute members scores and elimination from remaining rounds
-  recomputeFromRounds();
-  save();
-  roundNumber = rounds.length + 1;
-  renderRoundForm();
-  render();
-}
-
-function resetGame() {
-  members = [];
-  ended = false;
-  rounds = [];
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(ENDED_KEY);
-  localStorage.removeItem(ROUNDS_KEY);
-  localStorage.removeItem(MAX_KEY);
-  winnerDiv.textContent = '';
-  render();
-}
-
-addForm.addEventListener('submit', e => {
-  e.preventDefault();
-  const name = nameInput.value.trim();
-  if (!name) return;
-  addMember(name);
-  nameInput.value = '';
-});
-
-endGameBtn.addEventListener('click', () => showConfirm('End the game now?', () => endGame()));
-resetBtn.addEventListener('click', () => resetGame());
-
-undoRoundBtn && undoRoundBtn.addEventListener('click', () => {
-  showConfirm('Undo last round? This cannot be undone.', () => undoLastRound());
-});
-
-startGameBtn.addEventListener('click', () => startGame());
-roundForm.addEventListener('submit', submitRound);
-createSlotsBtn.addEventListener('click', createSlots);
-bulkAddForm.addEventListener('submit', saveBulkMembers);
-
-render();
+function validMax(){return Number.isInteger(maxScore)&&maxScore>0}
+function updateStartButton(){if(!els.start)return;els.start.disabled=inGame||ended||members.length<2||!validMax();els.start.textContent=rounds.length?'Resume Game':'Start Game'}
+function renderRoundInputs(){els.roundInputs.innerHTML='';if(!inGame)return;members.forEach((m,i)=>{const row=document.createElement('div');row.className='round-row';const label=document.createElement('label');label.htmlFor=`round-score-${i}`;label.textContent=m.name;const hint=document.createElement('span');hint.className='current-total';hint.textContent=`Total: ${m.score}`;label.appendChild(hint);const input=document.createElement('input');input.id=`round-score-${i}`;input.type='number';input.min='0';input.step='1';input.inputMode='numeric';input.placeholder='Score for this round';input.required=true;input.dataset.index=i;row.append(label,input);els.roundInputs.appendChild(row)})}
+function renderScoreboard(){els.scoreboard.innerHTML='';if(!members.length)return;const sorted=members.map((m,i)=>({...m,index:i})).sort((a,b)=>a.score-b.score);sorted.forEach((m,rank)=>{const row=document.createElement('div');row.className='score-row'+(m.eliminated?' eliminated':'');const left=document.createElement('div');left.innerHTML=`<div class="player-name">${escapeText(m.name)}</div><div class="rank">Rank ${rank+1}</div>`;const score=document.createElement('div');score.className='score-value';score.textContent=m.score;const status=document.createElement('div');status.className='status';status.textContent=m.eliminated?'Eliminated':m.score>=maxScore&&maxScore?'At limit':'Active';row.append(left,score,status);els.scoreboard.appendChild(row)})}
+function renderRoundsHistory(){if(!rounds.length){els.roundsHistory.innerHTML='<div class="empty-state">No rounds submitted yet.</div>';return}const table=document.createElement('table');table.className='rounds-table';const thead=document.createElement('thead'),hr=document.createElement('tr');['Round',...members.map(m=>m.name),'Total'].forEach(t=>{const th=document.createElement('th');th.textContent=t;hr.appendChild(th)});thead.appendChild(hr);table.appendChild(thead);const body=document.createElement('tbody');rounds.forEach((r,ri)=>{const tr=document.createElement('tr');const rd=document.createElement('td');rd.textContent=`R${ri+1}`;tr.appendChild(rd);members.forEach((m,i)=>{const td=document.createElement('td');td.textContent=r[i]??0;tr.appendChild(td)});const total=document.createElement('td');total.textContent=r.reduce((a,b)=>a+(Number(b)||0),0);tr.appendChild(total);body.appendChild(tr)});table.appendChild(body);els.roundsHistory.innerHTML='';els.roundsHistory.appendChild(table)}
+function addMember(name){name=name.trim();if(!name)return;if(members.some(m=>m.name.toLowerCase()===name.toLowerCase())){setNotice('Player names must be unique.','error');return}members.push(normalizeMember({name}));persist();render();els.nameInput.value='';els.nameInput.focus()}
+function removeMember(i){if(inGame||ended)return;showConfirm(`Remove ${members[i].name}?`,()=>{members.splice(i,1);persist();render()})}
+function createSlots(){const n=Number(els.memberCount.value)||2;els.slots.innerHTML='';for(let i=0;i<n;i++){const input=document.createElement('input');input.id=`slot-${i}`;input.placeholder=`Player ${i+1} name`;input.required=true;input.maxLength=40;els.slots.appendChild(input)}els.bulkForm.hidden=false}
+function cancelSlots(){els.bulkForm.hidden=true;els.slots.innerHTML=''}
+function saveBulk(e){e.preventDefault();const names=[...els.slots.querySelectorAll('input')].map(x=>x.value.trim());if(names.some(n=>!n)||new Set(names.map(n=>n.toLowerCase())).size!==names.length){setNotice('Enter a unique name in every slot.','error');return}members=names.map(name=>normalizeMember({name}));rounds=[];ended=false;inGame=false;roundNumber=1;DB_GAME_ID=null;persist();cancelSlots();render();setNotice('Players created. Set a maximum score and start the game.','success')}
+function startGame(){if(members.length<2){setNotice('Add at least 2 players before starting.','error');return}maxScore=Number(els.max.value);if(!validMax()){setNotice('Enter a valid maximum score greater than 0.','error');return}ended=false;inGame=true;roundNumber=rounds.length+1;members.forEach(m=>{m.eliminated=false});persist();render();setNotice(`Game started. Enter scores for Round ${roundNumber}.`,'success')}
+function submitRound(e){e.preventDefault();if(!inGame||ended)return;const inputs=[...els.roundInputs.querySelectorAll('input')];const scores=inputs.map(i=>Number(i.value));if(scores.some(v=>!Number.isInteger(v)||v<0)){setNotice('Each round score must be a whole number 0 or greater.','error');return}const previous=members.map(m=>m.score);rounds.push(scores);members.forEach((m,i)=>{m.score=previous[i]+scores[i];if(m.score>=maxScore)m.eliminated=true});roundNumber++;persist();render();setNotice('Round submitted successfully.','success');if(gameFinished()){endGame(false)}}
+function undoRound(){if(!rounds.length||ended)return;showConfirm(`Undo Round ${rounds.length}?`,()=>{const last=rounds.pop();members.forEach((m,i)=>{m.score=Math.max(0,m.score-(Number(last[i])||0));m.eliminated=false});roundNumber=rounds.length+1;persist();render();setNotice('Last round was undone.','success')})}
+async function endGame(confirmIt=true){if(!members.length)return;const finish=async()=>{inGame=false;ended=true;members.forEach(m=>m.eliminated=m.score>=maxScore);persist();render();setNotice('Game ended. Save it to history if it is not already saved.','success');await saveGame(true)};if(confirmIt)showConfirm('End the current game? You can still save it to history afterward.',finish);else await finish()}
+function resetGame(){showConfirm('Reset the current game completely? This removes players, rounds and the current saved-game link.',()=>{members=[];rounds=[];ended=false;inGame=false;maxScore=0;roundNumber=1;DB_GAME_ID=null;persist();render();setNotice('Game reset. Add players to begin a new game.','success')})}
+function newGame(){if(members.length||rounds.length){showConfirm('Start a new game? Unsaved current progress will be cleared.',()=>{members=[];rounds=[];ended=false;inGame=false;maxScore=0;roundNumber=1;DB_GAME_ID=null;persist();render();setNotice('New game ready.','success')})}else{render()}}
+async function createDBGame(){if(!supabaseClient)return null;const {data,error}=await supabaseClient.from('games').insert({name:`Game ${new Date().toISOString()}`,max_score:maxScore,ended}).select('id,name,max_score,ended,created_at').single();if(error)throw error;DB_GAME_ID=data.id;const mrows=members.map(m=>({game_id:data.id,name:m.name,total:m.score,eliminated:m.eliminated}));const {data:md,error:me}=await supabaseClient.from('members').insert(mrows).select('id,name,total,eliminated');if(me)throw me;members.forEach((m,i)=>m.db_id=md[i]?.id||null);if(rounds.length){const rr=rounds.map((scores,i)=>({game_id:data.id,round_number:i+1,scores}));const {error:re}=await supabaseClient.from('rounds').insert(rr);if(re)throw re}persist();return data}
+async function updateDBGame(){if(!supabaseClient||!DB_GAME_ID)return null;const {error}=await supabaseClient.from('games').update({max_score:maxScore,ended}).eq('id',DB_GAME_ID);if(error)throw error;const {error:me}=await supabaseClient.from('members').delete().eq('game_id',DB_GAME_ID);if(me)throw me;const mrows=members.map(m=>({game_id:DB_GAME_ID,name:m.name,total:m.score,eliminated:m.eliminated}));const {data:md,error:mi}=await supabaseClient.from('members').insert(mrows).select('id,name,total,eliminated');if(mi)throw mi;members.forEach((m,i)=>m.db_id=md[i]?.id||null);const {error:re}=await supabaseClient.from('rounds').delete().eq('game_id',DB_GAME_ID);if(re)throw re;if(rounds.length){const rr=rounds.map((scores,i)=>({game_id:DB_GAME_ID,round_number:i+1,scores}));const {error:ri}=await supabaseClient.from('rounds').insert(rr);if(ri)throw ri}persist();return true}
+function localHistory(){return readJSON(KEYS.history,[])}
+function saveLocalHistory(){if(!ended)return;const h=localHistory();const record={id:DB_GAME_ID||`local-${Date.now()}`,name:`Game ${new Date().toISOString()}`,created_at:new Date().toISOString(),max_score:maxScore,members:members.map(m=>({name:m.name,total:m.score,eliminated:m.eliminated})),rounds:rounds.map((scores,i)=>({round_number:i+1,scores})),winner:getWinners().map(w=>w.name)};const idx=h.findIndex(x=>x.id===record.id);if(idx>=0)h[idx]=record;else h.unshift(record);localStorage.setItem(KEYS.history,JSON.stringify(h.slice(0,200)))}
+async function saveGame(silent=false){if(!members.length){setNotice('Add players before saving.','error');return false}try{if(supabaseClient){if(DB_GAME_ID)await updateDBGame();else await createDBGame();els.db.textContent='DB: saved'}else{saveLocalHistory();els.db.textContent='DB: local backup'}saveLocalHistory();if(!silent)setNotice('Game saved successfully.','success');return true}catch(err){console.error(err);saveLocalHistory();els.db.textContent=`DB: error`;if(!silent)setNotice(`Database save failed: ${err.message||err}. A local backup was saved.`,'error');return false}}
+async function checkDB(){if(!supabaseClient){els.db.textContent='DB: local mode';return false}try{const {error}=await supabaseClient.from('games').select('id').limit(1);if(error)throw error;els.db.textContent='DB: connected';return true}catch(e){els.db.textContent='DB: offline';return false}}
+async function loadGameFromDB(id){if(!supabaseClient){loadLocalGame(id);return}try{const {data:g,error:ge}=await supabaseClient.from('games').select('id,name,max_score,ended,created_at').eq('id',id).single();if(ge)throw ge;const {data:ms,error:me}=await supabaseClient.from('members').select('id,name,total,eliminated').eq('game_id',id).order('id',{ascending:true});if(me)throw me;const {data:rs,error:re}=await supabaseClient.from('rounds').select('round_number,scores').eq('game_id',id).order('round_number',{ascending:true});if(re)throw re;members=(ms||[]).map(normalizeMember);rounds=(rs||[]).map(r=>normalizeRound(r.scores));maxScore=Number(g.max_score)||0;ended=Boolean(g.ended);inGame=!ended;DB_GAME_ID=id;roundNumber=rounds.length+1;persist();render();setNotice('Saved game loaded successfully.','success')}catch(e){console.error(e);setNotice(`Load failed: ${e.message||e}`,'error')}}
+function loadLocalGame(id){const g=localHistory().find(x=>x.id===id);if(!g)return;members=(g.members||[]).map(normalizeMember);rounds=(g.rounds||[]).map(r=>normalizeRound(r.scores));maxScore=Number(g.max_score)||0;ended=true;inGame=false;DB_GAME_ID=null;roundNumber=rounds.length+1;persist();render();setNotice('Local saved game loaded.','success')}
+async function deleteGame(id){if(!id)return;try{if(supabaseClient){const {data:g,error:ge}=await supabaseClient.from('games').select('id').eq('id',id).maybeSingle();if(ge)throw ge;if(!g)throw new Error('Game not found');const {error:re}=await supabaseClient.from('rounds').delete().eq('game_id',id);if(re)throw re;const {error:me}=await supabaseClient.from('members').delete().eq('game_id',id);if(me)throw me;const {data:deleted,error:de}=await supabaseClient.from('games').delete().eq('id',id).select('id');if(de)throw de;if(!deleted?.length)throw new Error('No game was deleted. Check the games DELETE policy in Supabase.');if(DB_GAME_ID===id){DB_GAME_ID=null;persist()}}else{const h=localHistory().filter(x=>x.id!==id);localStorage.setItem(KEYS.history,JSON.stringify(h))}await showHistoryPage(currentHistoryPage);setNotice('Saved game deleted.','success')}catch(e){console.error(e);setNotice(`Delete failed: ${e.message||e}`,'error')}}
+async function fetchHistory(page=1){if(!supabaseClient){const h=localHistory();historyTotalCount=h.length;return h.slice((page-1)*5,page*5).map(g=>({game:g,members:g.members||[],rounds:g.rounds||[],winner:{names:g.winner||[]}}))}const from=(page-1)*5,to=page*5-1;const {data,error,count}=await supabaseClient.from('games').select('id,name,max_score,ended,created_at',{count:'exact'}).order('created_at',{ascending:false}).range(from,to);if(error)throw error;historyTotalCount=count||0;return Promise.all((data||[]).map(async g=>{const {data:ms,error:me}=await supabaseClient.from('members').select('id,name,total,eliminated').eq('game_id',g.id).order('id',{ascending:true});if(me)throw me;const {data:rs,error:re}=await supabaseClient.from('rounds').select('round_number,scores').eq('game_id',g.id).order('round_number',{ascending:true});if(re)throw re;const pool=(ms||[]).filter(m=>!m.eliminated);const vals=pool.length?pool.map(m=>Number(m.total)||0):[];const min=vals.length?Math.min(...vals):null;return {game:g,members:ms||[],rounds:rs||[],winner:{names:min===null?[]:(ms||[]).filter(m=>Number(m.total)===min).map(m=>m.name),score:min}}}))}
+function renderHistory(details){els.historyList.innerHTML='';if(!details.length){els.historyList.innerHTML='<div class="empty-state">No saved games found.</div>';return}details.forEach(d=>{const card=document.createElement('article');card.className='history-card';const title=document.createElement('div');title.className='history-title';title.textContent=`${d.game.name||d.game.id}${d.game.created_at?' · '+new Date(d.game.created_at).toLocaleString():''}`;const players=document.createElement('div');players.className='history-players';players.textContent=`Players: ${(d.members||[]).map(m=>`${m.name} (${m.total||0})`).join(', ')||'None'}`;card.append(title,players);if(d.rounds?.length){const wrap=document.createElement('div');wrap.className='history-rounds';const t=document.createElement('table');t.className='history-rounds-table';const hr=document.createElement('tr');['Round',...(d.members||[]).map(m=>m.name)].forEach(x=>{const th=document.createElement('th');th.textContent=x;hr.appendChild(th)});const thead=document.createElement('thead');thead.appendChild(hr);t.appendChild(thead);const tb=document.createElement('tbody');d.rounds.forEach((r,i)=>{const tr=document.createElement('tr');const td=document.createElement('td');td.textContent=`R${r.round_number||i+1}`;tr.appendChild(td);(d.members||[]).forEach((m,mi)=>{const x=document.createElement('td');x.textContent=r.scores?.[mi]??0;tr.appendChild(x)});tb.appendChild(tr)});t.appendChild(tb);wrap.appendChild(t);card.appendChild(wrap)}const win=document.createElement('div');win.className='history-winner';win.textContent=d.winner?.names?.length?`Winner: ${d.winner.names.join(', ')} (${d.winner.score})`:'Winner: -';card.appendChild(win);const actions=document.createElement('div');actions.className='history-card-actions';const load=document.createElement('button');load.textContent='Load';load.onclick=()=>showConfirm('Load this saved game? Current game state will be replaced.',async()=>{closeConfirm();await loadGameFromDB(d.game.id);els.historyModal.hidden=true});const del=document.createElement('button');del.className='btn-danger';del.textContent='Delete';del.onclick=()=>showConfirm('Delete this saved game permanently?',async()=>{closeConfirm();await deleteGame(d.game.id)});actions.append(load,del);card.appendChild(actions);els.historyList.appendChild(card)})}
+async function showHistoryPage(page=1){els.historyList.innerHTML='<div class="loading">Loading history...</div>';try{const details=await fetchHistory(page);const totalPages=Math.max(1,Math.ceil(historyTotalCount/5));currentHistoryPage=Math.min(Math.max(1,page),totalPages);els.pageInfo.textContent=`Page ${currentHistoryPage} / ${totalPages}`;els.prev.disabled=currentHistoryPage<=1;els.next.disabled=currentHistoryPage>=totalPages;renderHistory(details)}catch(e){els.historyList.textContent=`Failed to load history: ${e.message||e}`;els.prev.disabled=true;els.next.disabled=true}}
+async function openHistory(){els.historyModal.hidden=false;currentHistoryPage=1;await checkDB();await showHistoryPage(1)}
+els.addForm.addEventListener('submit',e=>{e.preventDefault();addMember(els.nameInput.value)});els.createSlots.addEventListener('click',createSlots);els.cancelSlots.addEventListener('click',cancelSlots);els.bulkForm.addEventListener('submit',saveBulk);els.max.addEventListener('input',()=>{maxScore=Number(els.max.value)||0;localStorage.setItem(KEYS.max,String(maxScore));updateStartButton()});els.start.addEventListener('click',startGame);els.roundForm.addEventListener('submit',submitRound);els.undo.addEventListener('click',undoRound);els.endGameBtn.addEventListener('click',()=>endGame(true));els.resetBtn.addEventListener('click',resetGame);els.newGame.addEventListener('click',newGame);els.saveGameBtn.addEventListener('click',()=>saveGame(false));els.historyBtn.addEventListener('click',openHistory);els.historyClose.addEventListener('click',()=>els.historyModal.hidden=true);els.historyCloseTop.addEventListener('click',()=>els.historyModal.hidden=true);els.historyRefresh.addEventListener('click',()=>showHistoryPage(currentHistoryPage));els.prev.addEventListener('click',()=>showHistoryPage(currentHistoryPage-1));els.next.addEventListener('click',()=>showHistoryPage(currentHistoryPage+1));els.confirmNo.addEventListener('click',closeConfirm);els.confirmYes.addEventListener('click',async()=>{const fn=confirmAction;closeConfirm();if(fn)await fn()});els.confirmModal.addEventListener('click',e=>{if(e.target===els.confirmModal)closeConfirm()});els.historyModal.addEventListener('click',e=>{if(e.target===els.historyModal)els.historyModal.hidden=true});window.addEventListener('beforeunload',persist);
+checkDB();render();
