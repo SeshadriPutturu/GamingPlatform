@@ -3,74 +3,100 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Score Keeper</title>
+  <meta name="theme-color" content="#0b63ce">
+  <title>GTK Youth Least Count Game</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Score Keeper</h1>
-
-    <form id="addForm">
-      <input id="nameInput" placeholder="Member name" required />
-      <button type="submit">Add Member</button>
-    </form>
-
-    <div id="memberCountSection" class="member-count">
-      <label for="memberCount">Number of members:</label>
-      <select id="memberCount">
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
-        <option value="6">6</option>
-        <option value="7">7</option>
-        <option value="8">8</option>
-        <option value="9">9</option>
-        <option value="10">10</option>
-      </select>
-      <button id="createSlotsBtn">Create Slots</button>
-    </div>
-
-    <form id="bulkAddForm" style="display:none">
-      <div id="memberSlots"></div>
-      <button id="saveMembersBtn" type="submit">Save Members</button>
-    </form>
-
-    <div class="top-controls">
-      <label for="maxScoreInput">Maximum score:</label>
-      <input id="maxScoreInput" type="number" min="1" placeholder="e.g. 50" />
-      <button id="startGameBtn">Start Game</button>
-      <div id="roundInfo" class="round-info" aria-live="polite"></div>
-    </div>
-
-    <ul id="membersList"></ul>
-
-    <form id="roundForm" class="round-form" style="display:none">
-      <div id="roundInputs"></div>
-      <button id="submitRoundBtn" type="submit">Submit Round</button>
-    </form>
-
-    <div class="controls">
-      <button id="undoRoundBtn">Undo Last Round</button>
-      <button id="endGameBtn">End Game</button>
-      <button id="resetBtn">Reset</button>
-    </div>
-
-    <div id="winner" class="winner" aria-live="polite"></div>
-    <div id="roundsHistory" class="rounds-history"></div>
-  </div>
-
-  <div id="confirmModal" class="modal" style="display:none">
-    <div class="modal-content">
-      <p id="confirmMessage">Are you sure?</p>
-      <div class="modal-actions">
-        <button id="confirmYes">Yes</button>
-        <button id="confirmNo">No</button>
+  <main class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">GAME PLATFORM</p>
+        <h1>Least Count Game</h1>
+        <p class="subtitle">Track players, rounds, totals and game history without losing your progress.</p>
       </div>
+      <div id="dbStatus" class="db-status">DB: checking...</div>
+    </header>
+
+    <section class="panel setup-panel">
+      <div class="section-heading">
+        <div><h2>Players</h2><p>Add players before starting a game.</p></div>
+        <span id="playerCountBadge" class="count-badge">0 players</span>
+      </div>
+      <form id="addForm" class="add-form">
+        <input id="nameInput" autocomplete="off" placeholder="Enter player name" required maxlength="40">
+        <button type="submit">Add Player</button>
+      </form>
+      <div class="bulk-row">
+        <label for="memberCount">Quick setup</label>
+        <select id="memberCount">
+          <option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option>
+          <option value="5">5 players</option><option value="6">6 players</option><option value="7">7 players</option>
+          <option value="8">8 players</option><option value="9">9 players</option><option value="10">10 players</option>
+        </select>
+        <button id="createSlotsBtn" type="button" class="secondary">Create Slots</button>
+      </div>
+      <form id="bulkAddForm" class="bulk-form" hidden>
+        <div id="memberSlots" class="member-slots"></div>
+        <div class="inline-actions"><button id="saveMembersBtn" type="submit">Save Players</button><button id="cancelSlotsBtn" type="button" class="ghost">Cancel</button></div>
+      </form>
+      <div id="membersList" class="players-list"></div>
+    </section>
+
+    <section class="panel game-panel">
+      <div class="section-heading">
+        <div><h2>Game</h2><p>Lower total score wins. The maximum score ends the game automatically.</p></div>
+        <div id="roundInfo" class="round-pill">Not started</div>
+      </div>
+      <div class="game-settings">
+        <label>Maximum score <input id="maxScoreInput" type="number" min="1" max="100000" placeholder="e.g. 50"></label>
+        <button id="startGameBtn" type="button">Start Game</button>
+        <button id="newGameBtn" type="button" class="secondary">New Game</button>
+        <button id="saveGameBtn" type="button" class="secondary">Save Game</button>
+        <button id="historyBtn" type="button" class="secondary">History</button>
+      </div>
+
+      <div id="gameNotice" class="notice" role="status" aria-live="polite"></div>
+
+      <form id="roundForm" class="round-form" hidden>
+        <div class="round-heading"><h3 id="roundTitle">Round 1</h3><span>Enter this round's points</span></div>
+        <div id="roundInputs" class="round-inputs"></div>
+        <button id="submitRoundBtn" type="submit">Submit Round</button>
+      </form>
+
+      <div id="scoreBoard" class="scoreboard"></div>
+
+      <div class="game-actions">
+        <button id="undoRoundBtn" type="button" class="warning">Undo Last Round</button>
+        <button id="endGameBtn" type="button">End Game</button>
+        <button id="resetBtn" type="button" class="danger">Reset</button>
+      </div>
+      <div id="winner" class="winner" hidden></div>
+    </section>
+
+    <section class="panel history-panel">
+      <div class="section-heading"><div><h2>Current Game Rounds</h2><p>Every submitted round is kept here.</p></div></div>
+      <div id="roundsHistory" class="rounds-history"></div>
+    </section>
+  </main>
+
+  <div id="confirmModal" class="modal" hidden>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="confirmMessage">
+      <h3>Confirm action</h3><p id="confirmMessage">Are you sure?</p>
+      <div class="modal-actions"><button id="confirmNo" type="button" class="ghost">Cancel</button><button id="confirmYes" type="button">Continue</button></div>
     </div>
   </div>
 
+  <div id="historyModal" class="modal" hidden>
+    <div class="modal-content history-modal-content" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+      <div class="modal-header"><div><h3 id="historyTitle">Game History</h3><p>Saved games from Supabase or local backup.</p></div><button id="historyCloseTop" type="button" class="icon-button" aria-label="Close">×</button></div>
+      <div id="historyList" class="history-list">Loading...</div>
+      <div class="history-footer"><div class="history-controls"><button id="historyPrev" type="button" class="ghost">Previous</button><span id="historyPageInfo">Page 1 / 1</span><button id="historyNext" type="button" class="ghost">Next</button></div><div class="modal-actions"><button id="historyRefresh" type="button" class="secondary">Refresh</button><button id="historyClose" type="button">Close</button></div></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

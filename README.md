@@ -1,31 +1,30 @@
-# Score Keeper
+# Score Keeper Pro
 
-Simple single-page web app to add members, track scores, and show the winner when you click "End Game". Data is stored in the browser's `localStorage` so no server is required.
+A responsive score/game platform for multi-player games where the **lowest total score wins** and a configured maximum score ends the game.
 
-## Files
+## Features
+- Add/remove players before a game starts
+- Quick multi-player setup
+- Maximum-score configuration
+- Round-by-round score entry mapped to the correct player name
+- Automatic totals and ranking
+- Automatic game end when a player reaches the maximum score
+- Winner/tie calculation using the lowest score
+- Undo last round
+- End game, reset and start a new game
+- Save/update games in Supabase
+- Load saved games
+- Delete saved games with child records cleaned up first
+- Paginated game history
+- LocalStorage persistence across browser refreshes
+- Local history backup when Supabase is unavailable
+- Responsive desktop/tablet/mobile UI
 
-- `index.html` — main page
-- `style.css` — styles
-- `app.js` — app logic
+## Supabase
+1. Open Supabase SQL Editor.
+2. Run `supabase_schema.sql`.
+3. Put your URL and anon key in `config.js`.
 
-## Run locally
+The migration is safe for an existing database and specifically adds `members.created_at` if an older installation is missing it. The application itself does not depend on `members.created_at` for history ordering.
 
-Open `index.html` in a browser.
-
-## Host on GitHub Pages
-
-1. Create a new GitHub repository and push these files to the `main` branch.
-2. On GitHub, go to **Settings → Pages** and set the source to `main` branch and `/ (root)` folder, then save.
-3. Your site will be available at `https://<your-username>.github.io/<repo-name>/` shortly.
-
-Quick commands to push (run locally):
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: score keeper"
-git branch -M main
-git remote add origin https://github.com/<your-username>/<repo-name>.git
-git push -u origin main
-
-```
+> The included RLS policies are intentionally permissive for a demo. For a production/public deployment, replace them with authenticated, user-scoped policies.
